@@ -1,0 +1,78 @@
+# ============================================================================
+#  docker-compose.yml — baseline stack (works on any platform, CPU inference).
+#  For NVIDIA GPU access, additionally use docker-compose.gpu.yml:
+#     docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+#  …or run the wrapper:
+#     ./scripts/start.sh up --build
+#  which auto-detects nvidia-smi and picks the right combination.
+# ============================================================================
+
+services:
+  # ── Flask web application ────────────────────────────────────────────────
+  app:
+    build:
+      context: ..                       # repo root — Dockerfile COPYs shooting_recognition/ from here
+      dockerfile: docker/Dockerfile
+    image: shooting-target-recognition:latest
+    container_name: str-app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # ── Flask ──────────────────────────────────────────────
+      SECRET_KEY:   ${SECRET_KEY:-change-me-in-production}
+      DEBUG:        ${DEBUG:-false}
+      PORT:         "5000"
+      # ── PostgreSQL (service name 'db' resolves via compose network) ──
+      DB_HOST:      db
+      DB_PORT:      "5432"
+      DB_NAME:      shooting_recognition
+      DB_USER:      postgres
+      DB_PASSWORD:  ${DB_PASSWORD:-postgres}
+      # ── Model inference ───────────────────────────────────
+      MODEL_CONFIDENCE: ${MODEL_CONFIDENCE:-0.35}
+      # ── Motion detection ──────────────────────────────────
+      MOTION_THRESHOLD: ${MOTION_THRESHOLD:-5000}
+      MOTION_DELAY_SEC: ${MOTION_DELAY_SEC:-1.5}
+      # ── RTSP (optional IP camera) ─────────────────────────
+      RTSP_URL: ${RTSP_URL:-rtsp://192.168.1.100/stream}
+    volumes:
+      # Trained weights are mounted from the host — replace best.pt and restart
+      # without rebuilding the image. Read-only for safety.
+      - ../shooting_recognition/recognition/weights:/app/recognition/weights:ro
+      # Persistent runtime artifacts (uploads, generated reports, saved frames).
+      - app-uploads:/app/uploads
+      - app-outputs:/app/outputs
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [str-net]
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: str-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       shooting_recognition
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U postgres -d shooting_recognition"]
+      interval: 5s
+      timeout:  3s
+      retries:  10
+      start_period: 10s
+    networks: [str-net]
+    # Uncomment to expose Postgres for external GUI clients (pgAdmin / DBeaver):
+    # ports: ["5432:5432"]
+
+volumes:
+  pg-data:      { name: str-pg-data }
+  app-uploads:  { name: str-app-uploads }
+  app-outputs:  { name: str-app-outputs }
+
+networks:
+  str-net: { name: str-net }

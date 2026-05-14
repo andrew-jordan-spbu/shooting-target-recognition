@@ -1,0 +1,18 @@
+# ──────────────────────────────────────────────────────────────────────────
+#  requirements.docker.txt — Docker-specific pin list.
+#  Differs from shooting_recognition/requirements.txt by swapping
+#  opencv-python  →  opencv-python-headless  (no GUI dependencies, smaller
+#  image, ~200 MB saved).
+# ──────────────────────────────────────────────────────────────────────────
+
+flask>=3.0
+opencv-python-headless>=4.8        # ← headless variant (no Qt/X11)
+ultralytics>=8.3
+torch>=2.3
+torchvision>=0.18
+pandas>=2.0
+fpdf2>=2.7
+python-dotenv>=1.0
+psycopg2-binary>=2.9
+roboflow>=1.1
+pyyaml>=6.0
