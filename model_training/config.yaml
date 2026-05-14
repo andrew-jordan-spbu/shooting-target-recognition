@@ -1,0 +1,102 @@
+# ═══════════════════════════════════════════════════════════════
+#  model_training/config.yaml — all hyperparameters in one place
+# ═══════════════════════════════════════════════════════════════
+
+# ── Datasets (Roboflow) ──────────────────────────────────────────
+# All listed datasets are downloaded and merged into ONE unified dataset
+# with a single class "bulletholes" (class_id = 0).  Per-source remap tables
+# decide which source classes become "bulletholes" and which are dropped
+# (mapped to null).  See model_training/src/merge.py for details.
+datasets:
+  # version: 'latest' (or omit entirely) → use newest version available
+  # If a specified version doesn't exist, code auto-falls back to latest with a warning
+  - name: knsa
+    workspace: knsashootingtargets
+    project:   knsa-shooting-target
+    version:   latest
+    # KNSA v10+ uses score-zone class taxonomy: 0-10 numeric + 'bulletholes'.
+    # We collapse all to a single class.
+    remap:
+      "0":  bulletholes
+      "1":  bulletholes
+      "2":  bulletholes
+      "3":  bulletholes
+      "4":  bulletholes
+      "5":  bulletholes
+      "6":  bulletholes
+      "7":  bulletholes
+      "8":  bulletholes
+      "9":  bulletholes
+      "10": bulletholes
+      bulletholes: bulletholes
+
+  - name: project_bat
+    workspace: project-bat-bullet-hole-detection
+    project:   bullet-hole-object-detection
+    version:   latest
+    # BAT v30+ uses score-zone class taxonomy: 0-10 numeric + Target + black_contour.
+    remap:
+      "0":  bulletholes
+      "1":  bulletholes
+      "2":  bulletholes
+      "3":  bulletholes
+      "4":  bulletholes
+      "5":  bulletholes
+      "6":  bulletholes
+      "7":  bulletholes
+      "8":  bulletholes
+      "9":  bulletholes
+      "10": bulletholes
+      Target:        null      # not a hole — drop
+      black_contour: null      # not a hole — drop
+
+raw_data_dir:    ./data/raw       # individual datasets land here
+merge_output_dir: ./data/merged   # unified output of merge_datasets()
+
+# ── Model & training ─────────────────────────────────────────────
+# IMPORTANT: match model size to your dataset size:
+#   yolov8s  → any size (< 300 train images is fine)
+#   yolov8m  → needs ≥ 300 train images  (add dropout: 0.1 if smaller)
+#   yolov8l  → needs ≥ 500 train images
+train:
+  model:          yolov8s.pt   # yolov8n / yolov8s / yolov8m / yolov8l
+  epochs:         150
+  imgsz:          640          # increase to 1280 only if dataset has ≥ 500 images
+  batch:          16           # 32 on A100, 8 on CPU
+  patience:       40           # early stopping — larger = more chances to improve
+  optimizer:      AdamW
+  lr0:            0.001
+  lrf:            0.01
+  warmup_epochs:  3
+  dropout:        0.0          # set to 0.1 when using yolov8m/l on small datasets
+  weight_decay:   0.0005
+
+  # Augmentation — critical for angle invariance
+  degrees:        30.0         # random rotation ±30°
+  translate:      0.15
+  scale:          0.6
+  shear:          5.0
+  perspective:    0.0005
+  flipud:         0.10
+  fliplr:         0.50
+  mosaic:         1.0
+  mixup:          0.15
+  copy_paste:     0.10
+  hsv_h:          0.015
+  hsv_s:          0.70
+  hsv_v:          0.40
+
+# ── Evaluation ───────────────────────────────────────────────────
+evaluate:
+  conf:  0.50
+  iou:   0.50
+  split: test          # train / valid / test
+
+# ── Inference ────────────────────────────────────────────────────
+inference:
+  conf: 0.50
+
+# ── Output paths ─────────────────────────────────────────────────
+output:
+  project:  runs/train
+  run_name: shooting_target

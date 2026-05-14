@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Zone Calibration{% endblock %}
+{% block content %}
+<div class="calib-layout">
+
+  <div class="calib-canvas-wrap">
+    <h3>Target Auto-Detection</h3>
+    <p class="hint-text" id="detect-status">Waiting for first frames…</p>
+    <div style="position:relative;display:inline-block">
+      <canvas id="calib-canvas" width="640" height="480"></canvas>
+    </div>
+  </div>
+
+  <div class="calib-controls">
+    <h3>Scoring Zones</h3>
+    <p class="hint-text">Zone 10 = centre (innermost). Drag a circle edge to resize, drag centre to move all.</p>
+    <div id="zones-list" style="margin:12px 0;max-height:340px;overflow-y:auto"></div>
+
+    <div id="calib-hint" class="hint hidden">
+      Drag circle <strong>edge</strong> → resize. Drag <strong>centre</strong> → move all. Edit score in the list.
+    </div>
+
+    <div class="calib-actions">
+      <button id="btn-edit" class="btn btn-secondary" onclick="enableEdit()">✎ Edit Zones</button>
+      <button id="btn-confirm" class="btn btn-primary" onclick="confirmZones()">✓ Confirm &amp; Continue</button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/calibrate.js') }}"></script>
+{% endblock %}

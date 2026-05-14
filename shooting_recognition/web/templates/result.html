@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Results{% endblock %}
+{% block content %}
+<div class="card" style="max-width:680px">
+  <h2>Session Results</h2>
+  {% if session %}
+  <p style="color:#aaa;margin-bottom:16px">
+    Player: <strong style="color:#e0e0e0">{{ session.player_name }}</strong>
+    &nbsp;|&nbsp; {{ session.started_at[:10] if session.started_at else '' }}
+  </p>
+  {% endif %}
+
+  {% if shots %}
+  <table class="table">
+    <thead>
+      <tr><th>Shot #</th><th>Score</th><th>Cumulative</th><th>Time</th></tr>
+    </thead>
+    <tbody>
+      {% set ns = namespace(cum=0) %}
+      {% for s in shots %}
+        {% set ns.cum = ns.cum + s.score %}
+        <tr>
+          <td>{{ s.shot_number }}</td>
+          <td class="score-cell score-{{ s.score }}">{{ s.score }}</td>
+          <td>{{ ns.cum }}</td>
+          <td>{{ s.timestamp[:19] if s.timestamp else '' }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#888">No shots recorded.</p>
+  {% endif %}
+
+  <div class="result-total">Total: {{ total }} / {{ shots|length * 10 }}</div>
+
+  <div class="result-actions">
+    <a class="btn btn-secondary" href="/download/session_{{ session_id }}_{{ safe_name }}.csv">⬇ CSV</a>
+    <a class="btn btn-secondary" href="/download/session_{{ session_id }}_{{ safe_name }}.pdf">⬇ PDF</a>
+    <a class="btn btn-primary" href="/">New Session</a>
+  </div>
+</div>
+{% endblock %}

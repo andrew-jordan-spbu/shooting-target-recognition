@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+
+# Database
+database/scores.db
+
+# User data
+uploads/
+outputs/
+
+# Model weights
+recognition/weights/*.pt
+recognition/weights/*.onnx
+
+# Calibration state (per-session, not committed)
+calibration/zones.json
+
+# macOS
+.DS_Store

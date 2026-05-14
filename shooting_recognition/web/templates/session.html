@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Live Session{% endblock %}
+{% block content %}
+<div class="session-layout">
+  <div class="video-pane">
+    <img id="video-feed" src="/stream" alt="Live feed">
+  </div>
+  <div class="score-pane">
+    <h3>Live Score</h3>
+    <div id="shots-list"></div>
+    <div class="score-total">
+      Total: <span id="total-score">0</span>
+    </div>
+    <form action="/finish" method="post" onsubmit="return confirm('Finish session and generate report?')">
+      <button type="submit" class="btn btn-danger">⏹ Finish Session</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/stream.js') }}"></script>
+{% endblock %}

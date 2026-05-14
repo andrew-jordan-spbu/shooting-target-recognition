@@ -1,0 +1,88 @@
+# ──────────────────────────────────────────────────────────────
+# Python
+# ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# ──────────────────────────────────────────────────────────────
+# Secrets — never commit
+# ──────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+*.key
+credentials*.json
+
+# ──────────────────────────────────────────────────────────────
+# Model weights & training artifacts (distributed via Releases)
+# ──────────────────────────────────────────────────────────────
+*.pt
+*.onnx
+*.engine
+*.tflite
+
+# Training outputs
+model_training/data/
+model_training/runs/
+model_training/.pipeline_state/
+
+# Notebook caches & local notebook copies
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+model_training/notebooks/exports/
+model_training/notebooks/shooting_target/
+
+# ──────────────────────────────────────────────────────────────
+# Recognition app — runtime artifacts
+# ──────────────────────────────────────────────────────────────
+shooting_recognition/uploads/*
+!shooting_recognition/uploads/.gitkeep
+
+shooting_recognition/outputs/reports/*
+!shooting_recognition/outputs/reports/.gitkeep
+
+shooting_recognition/outputs/detection_frames/
+
+shooting_recognition/recognition/weights/*
+!shooting_recognition/recognition/weights/.gitkeep
+
+# User-specific calibration state (regenerated per session)
+shooting_recognition/calibration/zones.json
+
+# ──────────────────────────────────────────────────────────────
+# IDE / OS
+# ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# ──────────────────────────────────────────────────────────────
+# Logs
+# ──────────────────────────────────────────────────────────────
+*.log
+logs/

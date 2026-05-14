@@ -1,0 +1,9 @@
+ultralytics>=8.3
+roboflow>=1.1
+torch>=2.3
+torchvision>=0.18
+opencv-python-headless>=4.8
+pandas>=2.0
+pyyaml>=6.0
+matplotlib>=3.7
+seaborn>=0.13

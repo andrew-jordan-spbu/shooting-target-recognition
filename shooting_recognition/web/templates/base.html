@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Shooting Recognition{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+  <nav class="navbar">
+    <a class="brand" href="/">🎯 Shooting Recognition</a>
+    <span id="status-badge" class="badge badge-idle">Idle</span>
+  </nav>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <script>
+    function updateBadge() {
+      fetch('/status').then(r => r.json()).then(d => {
+        const b = document.getElementById('status-badge');
+        if (!b) return;
+        b.textContent = d.running ? 'Live' : 'Idle';
+        b.className = 'badge ' + (d.running ? 'badge-live' : 'badge-idle');
+      }).catch(() => {});
+    }
+    setInterval(updateBadge, 3000);
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
