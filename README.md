@@ -41,7 +41,23 @@ cd shooting-target-recognition
 shooting_recognition/recognition/weights/best.pt
 ```
 
-### 3. Запуск Mac-приложения
+### 3. Запуск приложения
+
+Доступно **два способа** запуска — выберите подходящий:
+
+#### Вариант 1 — Docker (рекомендуется для production / cross-platform) 🐳
+
+```bash
+cd docker
+
+cp .env.example .env       # отредактируйте под себя (DB_PASSWORD и др.)
+./scripts/start.sh up --build
+```
+
+Скрипт `start.sh` автоматически определяет наличие NVIDIA GPU и подключает соответствующий compose-конфиг. На Mac работает в CPU-режиме (USB-камера и MPS недоступны через Docker Desktop). Подробности: [`docker/README.md`](./docker/README.md).
+
+#### Вариант 2 — Локальная установка (Mac с MPS / Linux / Windows)
+
 ```bash
 cd shooting_recognition
 
@@ -61,6 +77,15 @@ python main.py             # http://localhost:5000
 ```
 
 Подробная инструкция: [`shooting_recognition/README.md`](./shooting_recognition/README.md).
+
+| Свойство | Docker | Локально |
+|----------|--------|----------|
+| Запуск одной командой | ✅ | ❌ (нужны Python, PostgreSQL, venv) |
+| USB-камера на Mac | ❌ | ✅ |
+| Apple MPS (GPU на Mac) | ❌ | ✅ |
+| NVIDIA GPU (Linux) | ✅ | ✅ |
+| Изоляция окружения | ✅ | ❌ |
+| RTSP / видеофайл / веб-интерфейс | ✅ | ✅ |
 
 ## Стек технологий
 
@@ -83,6 +108,13 @@ shooting-target-recognition/
 ├── ARCHITECTURE.md                 ← подробное описание архитектуры (~1000 строк)
 ├── LICENSE                         ← MIT
 ├── .gitignore
+├── docker/                         ← контейнеризация (Dockerfile + compose)
+│   ├── Dockerfile
+│   ├── docker-compose.yml          ← CPU baseline (works everywhere)
+│   ├── docker-compose.gpu.yml      ← NVIDIA GPU override
+│   ├── scripts/start.sh            ← wrapper с автодетекцией GPU
+│   └── README.md
+│
 ├── model_training/                 ← обучение модели (Colab / локально)
 │   ├── README.md
 │   ├── pipeline.py                 ← CLI: python pipeline.py --step all

@@ -19,7 +19,11 @@ def create_app() -> Flask:
 
 
 if __name__ == "__main__":
+    import os
     init_db()
     app = create_app()
-    print(f"Starting on http://localhost:{PORT}")
-    app.run(debug=DEBUG, port=PORT, threaded=True)
+    # Bind to 0.0.0.0 so the port is reachable from outside the process (Docker).
+    # Override via HOST env var if needed (e.g. HOST=127.0.0.1 for local-only).
+    host = os.getenv("HOST", "0.0.0.0")
+    print(f"Starting on http://{host}:{PORT}")
+    app.run(host=host, debug=DEBUG, port=PORT, threaded=True)

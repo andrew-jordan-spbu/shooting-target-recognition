@@ -1,0 +1,33 @@
+# ============================================================================
+#  docker-compose.gpu.yml — override that grants the app container access to
+#  all NVIDIA GPUs on the host. Apply on top of docker-compose.yml:
+#
+#      docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+#
+#  Or use ./scripts/start.sh which auto-detects nvidia-smi.
+#
+#  Prerequisites:
+#    • Linux host with NVIDIA GPU
+#    • NVIDIA driver installed
+#    • nvidia-container-toolkit installed:
+#        https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
+#
+#  macOS notes:
+#    • Docker Desktop on macOS does NOT expose Apple MPS to containers.
+#    • This override is only useful on Linux + NVIDIA setups.
+# ============================================================================
+
+services:
+  app:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver:       nvidia
+              count:        all
+              capabilities: [gpu]
+    environment:
+      # Hint to PyTorch that CUDA should be used; the app's _detect_device()
+      # falls through to CUDA when MPS isn't available.
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
