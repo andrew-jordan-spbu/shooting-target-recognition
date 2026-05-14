@@ -24,7 +24,7 @@
 
 ### 1. Клонирование репозитория
 ```bash
-git clone https://github.com/USER/shooting-target-recognition.git
+git clone https://github.com/andrew-jordan-spbu/shooting-target-recognition.git
 cd shooting-target-recognition
 ```
 
