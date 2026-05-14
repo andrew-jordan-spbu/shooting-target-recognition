@@ -13,16 +13,48 @@
 
   <div class="calib-controls">
     <h3>Scoring Zones</h3>
-    <p class="hint-text">Zone 10 = centre (innermost). Drag a circle edge to resize, drag centre to move all.</p>
-    <div id="zones-list" style="margin:12px 0;max-height:340px;overflow-y:auto"></div>
 
-    <div id="calib-hint" class="hint hidden">
-      Drag circle <strong>edge</strong> → resize. Drag <strong>centre</strong> → move all. Edit score in the list.
+    <div class="form-group" style="margin-bottom:14px">
+      <label style="font-size:0.85rem;color:#9ca3af">Detection mode</label>
+      <select id="mode-select" class="form-control"
+              style="margin-top:4px;background:#1e2535;color:#e2e8f0;border:1px solid #374151;padding:6px 10px;border-radius:6px;width:100%"
+              onchange="switchMode(this.value)">
+        <option value="auto">Auto-detect (RANSAC)</option>
+        <option value="semi">Semi-auto (click zones 10 → 1)</option>
+      </select>
     </div>
 
-    <div class="calib-actions">
-      <button id="btn-edit" class="btn btn-secondary" onclick="enableEdit()">✎ Edit Zones</button>
-      <button id="btn-confirm" class="btn btn-primary" onclick="confirmZones()">✓ Confirm &amp; Continue</button>
+    <!-- Semi-auto instruction banner (hidden in auto mode) -->
+    <div id="semi-banner" class="hint hidden"
+         style="background:#1e3a5f;border:1px solid #3b82f6;padding:10px 12px;border-radius:6px;margin-bottom:10px">
+      <strong id="semi-title">Step 1 — Click the TARGET CENTRE</strong><br>
+      <span style="font-size:0.8rem;color:#93c5fd">
+        1. Click on the bullseye dot → sets the centre.<br>
+        2. Move mouse to each zone boundary → preview circle appears.<br>
+        3. Click to confirm each zone (10 → 1).<br>
+        Double-click anytime to reposition the centre.
+      </span>
+    </div>
+
+    <p class="hint-text" id="zone-desc" style="display:none">
+      Zone 10 = centre (innermost).
+      Drag a circle edge to resize, drag centre to move all.
+    </p>
+
+    <div id="zones-list"
+         style="margin:12px 0;max-height:300px;overflow-y:auto"></div>
+
+    <div id="calib-hint" class="hint hidden">
+      <strong>Double-click</strong> anywhere → move centre there.<br>
+      Drag circle <strong>edge</strong> → resize all.
+      Drag <strong>centre dot</strong> → move all.
+    </div>
+
+    <div class="calib-actions" style="margin-top:10px">
+      <button id="btn-edit" class="btn btn-secondary"
+              onclick="enableEdit()">✎ Edit Zones</button>
+      <button id="btn-confirm" class="btn btn-primary"
+              onclick="confirmZones()">✓ Confirm &amp; Continue</button>
     </div>
   </div>
 

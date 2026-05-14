@@ -4,8 +4,6 @@ import threading
 import time
 from pathlib import Path
 
-log = logging.getLogger(__name__)
-
 import cv2
 import numpy as np
 from flask import (
@@ -14,7 +12,9 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
-from calibration.auto_detect import detect_target, save_zones
+from calibration.auto_detect import (
+    detect_target, find_zone_at_click, snap_to_ring_boundary,
+)
 from calibration.zone_store import ZoneStore
 from capture.camera import CameraSource
 from capture.file_source import FileSource
@@ -32,6 +32,8 @@ from recognition.model import TargetModel
 from recognition.scorer import ShotScorer
 from reporting.csv_report import export_csv
 from reporting.pdf_report import export_pdf
+
+log = logging.getLogger(__name__)
 
 bp = Blueprint("main", __name__)
 
@@ -83,7 +85,7 @@ def start():
     elif source_type == "ip":
         rtsp_url = (request.form.get("rtsp_url") or "").strip()
         if not rtsp_url:
-            return jsonify({"error": "RTSP URL is required for IP camera"}), 400
+            return jsonify({"error": "RTSP URL is required"}), 400
         source = ("ip", rtsp_url)
     elif source_type == "file":
         f = request.files.get("video_file")
@@ -144,6 +146,55 @@ def get_calibration_zones():
     return jsonify(zones or {})
 
 
+@bp.route("/calibrate/detect_boundary", methods=["POST"])
+def detect_boundary():
+    """
+    Semi-auto calibration helper.  Two modes:
+
+    • First click (zone 10, no centre known):
+      POST {click_x, click_y}
+      → connected-component on Canny-edge barriers finds the closed
+        ring region at the click, fits minEnclosingCircle.
+      → returns {cx, cy, radius}  (centre comes from the zone itself)
+
+    • Subsequent clicks (zones 9-1, centre already known):
+      POST {cx, cy, click_x, click_y}
+      → snaps the click-to-centre distance to the nearest ring-edge
+        peak in the Canny distance histogram.
+      → returns {cx, cy, radius}  (cx/cy unchanged, radius snapped)
+
+    All zones share the same cx/cy so they are truly concentric.
+    """
+    data = request.get_json(force=True)
+    try:
+        click_x = int(data["click_x"])
+        click_y = int(data["click_y"])
+    except (KeyError, ValueError, TypeError):
+        return jsonify({"error": "Invalid parameters"}), 400
+
+    with _lock:
+        frame = _state.get("calibration_frame")
+    if frame is None:
+        return jsonify({"error": "No frame available"}), 400
+
+    # Centre provided → use snap approach (zones 9-1)
+    if "cx" in data and "cy" in data:
+        try:
+            cx, cy = int(data["cx"]), int(data["cy"])
+        except (ValueError, TypeError):
+            cx, cy = None, None
+
+        if cx is not None:
+            import math as _math
+            r_click = int(_math.hypot(click_x - cx, click_y - cy))
+            radius = snap_to_ring_boundary(frame, cx, cy, r_click)
+            return jsonify({"cx": cx, "cy": cy, "radius": radius})
+
+    # No centre → connected-component approach (zone 10)
+    cx, cy, radius = find_zone_at_click(frame, click_x, click_y)
+    return jsonify({"cx": cx, "cy": cy, "radius": radius})
+
+
 @bp.route("/calibrate/zones", methods=["POST"])
 def save_calibration_zones():
     data = request.get_json(force=True)
@@ -202,14 +253,17 @@ def video_stream():
             with _lock:
                 frame = _state.get("latest_frame")
             if frame is not None:
-                _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                _, buf = cv2.imencode(
+                    ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70]
+                )
                 yield (
                     b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
-                    + buf.tobytes()
-                    + b"\r\n"
+                    + buf.tobytes() + b"\r\n"
                 )
             time.sleep(0.04)  # ~25 fps cap
-    return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
+    return Response(
+        generate(), mimetype="multipart/x-mixed-replace; boundary=frame"
+    )
 
 
 @bp.route("/events")
@@ -262,7 +316,8 @@ def result_view(session_id: int):
     session = get_session(session_id)
     shots = get_session_shots(session_id)
     total = sum(s["score"] for s in shots)
-    safe_name = (session["player_name"] if session else "player").replace(" ", "_")
+    raw_name = session["player_name"] if session else "player"
+    safe_name = raw_name.replace(" ", "_")
     return render_template(
         "result.html",
         session_id=session_id,
@@ -335,7 +390,8 @@ def _run_pipeline(source_tuple: tuple) -> None:
                             zone_store.set(zones_data)
                             with _lock:
                                 _state["calibration_zones"] = zones_data
-                            log.info("Calibration zones set: %d zones", len(zones_data.get("zones", [])))
+                            n_z = len(zones_data.get("zones", []))
+                            log.info("Calibration zones set: %d zones", n_z)
                     continue
 
                 # ── Wait until user confirms calibration ─────────────────
@@ -347,8 +403,12 @@ def _run_pipeline(source_tuple: tuple) -> None:
                     time.sleep(0.05)
                     continue
 
-                # Sync zone store with whatever the user confirmed
-                if calib_zones and not zone_store.is_ready():
+                # Always sync zone store from the confirmed zones.
+                # The old guard `not zone_store.is_ready()` was wrong:
+                # auto-detection fills zone_store during calibration frames,
+                # so is_ready() returns True and user-confirmed edits
+                # (semi-auto or manual) were silently ignored.
+                if calib_zones:
                     zone_store.set(calib_zones)
                     scorer._zone_store = zone_store
 
@@ -414,14 +474,18 @@ def _run_pipeline(source_tuple: tuple) -> None:
 def _draw_zones(frame: np.ndarray, zones: list) -> np.ndarray:
     for zone in zones:
         color = (0, 220, 80) if zone["score"] >= 7 else (0, 165, 255)
-        cv2.circle(frame, (zone["cx"], zone["cy"]), zone["radius"], color, 1)
-        label_x = zone["cx"] - zone["radius"] + 4
-        label_y = zone["cy"] - zone["radius"] + 14
-        cv2.putText(
-            frame, str(zone["score"]),
-            (label_x, label_y),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA,
-        )
+        cx, cy = zone["cx"], zone["cy"]
+        if "rx" in zone and "ry" in zone:
+            rx, ry = zone["rx"], zone["ry"]
+            cv2.ellipse(frame, (cx, cy), (rx, ry),
+                        zone.get("angle", 0.0), 0, 360, color, 1)
+            label_x, label_y = cx - rx + 4, cy - ry + 14
+        else:
+            r = zone["radius"]
+            cv2.circle(frame, (cx, cy), r, color, 1)
+            label_x, label_y = cx - r + 4, cy - r + 14
+        cv2.putText(frame, str(zone["score"]), (label_x, label_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA)
     return frame
 
 
@@ -437,7 +501,9 @@ def _save_shot_frame(
     path written. Saved layout:
         outputs/detection_frames/session_{id}/shot_{N:03d}_score{S}_conf{C}.jpg
     """
-    out_dir = OUTPUT_FOLDER.parent / "detection_frames" / f"session_{session_id}"
+    out_dir = (
+        OUTPUT_FOLDER.parent / "detection_frames" / f"session_{session_id}"
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
 
     annotated = _draw_zones(frame.copy(), zones)
@@ -448,7 +514,7 @@ def _save_shot_frame(
     cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 255), 2)
     cv2.circle(annotated, (int(cx), int(cy)), 5, (0, 0, 255), -1)
     cv2.putText(
-        annotated, f"#{shot_num} score={score} conf={conf:.2f}",
+        annotated, f"#{shot_num} s={score} c={conf:.2f}",
         (x1, max(y1 - 8, 14)),
         cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 2, cv2.LINE_AA,
     )
