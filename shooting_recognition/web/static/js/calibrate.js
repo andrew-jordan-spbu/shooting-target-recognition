@@ -17,9 +17,23 @@ async function init() {
   // Poll until calibration frame is available (pipeline needs CALIBRATION_FRAMES)
   let attempts = 0;
   while (attempts < 60) {
-    const resp = await fetch('/calibrate/frame');
-    if (resp.status === 200) {
-      const blob = await resp.blob();
+    const [frameResp, statusResp] = await Promise.all([
+      fetch('/calibrate/frame'),
+      fetch('/status'),
+    ]);
+    const statusData = await statusResp.json().catch(() => ({}));
+    if (statusData.error) {
+      statusEl.textContent = '✗ Pipeline error: ' + statusData.error;
+      statusEl.style.color = '#ef4444';
+      return;
+    }
+    if (!statusData.running && attempts > 2) {
+      statusEl.textContent = '✗ Pipeline stopped unexpectedly. Check camera/stream settings and restart.';
+      statusEl.style.color = '#ef4444';
+      return;
+    }
+    if (frameResp.status === 200) {
+      const blob = await frameResp.blob();
       const url  = URL.createObjectURL(blob);
       bgImage = await loadImage(url);
       canvas.width  = bgImage.naturalWidth  || 640;
@@ -30,20 +44,24 @@ async function init() {
     attempts++;
   }
 
-  const zonesResp = await fetch('/calibrate/zones');
-  const data = await zonesResp.json();
-  if (data && data.zones && data.zones.length) {
-    zones = data.zones;
-    statusEl.textContent = data.auto_detected
-      ? '✓ Target auto-detected. Confirm or edit zones below.'
-      : '⚠ Auto-detect failed — using fallback centred zones. Please edit manually.';
-  } else {
-    statusEl.textContent = 'Waiting for auto-detection…';
-    // Retry once more after a short delay
-    await sleep(1500);
-    const r2 = await fetch('/calibrate/zones');
-    const d2 = await r2.json();
-    if (d2 && d2.zones) zones = d2.zones;
+  statusEl.textContent = 'Running auto-detection…';
+  let zonesFound = false;
+  for (let i = 0; i < 30; i++) {   // poll up to 15 s
+    const zonesResp = await fetch('/calibrate/zones');
+    const data = await zonesResp.json().catch(() => ({}));
+    if (data && data.zones && data.zones.length) {
+      zones = data.zones;
+      statusEl.textContent = data.auto_detected
+        ? '✓ Target auto-detected. Confirm or edit zones below.'
+        : '⚠ Auto-detect failed — using fallback centred zones. Please edit manually.';
+      zonesFound = true;
+      break;
+    }
+    await sleep(500);
+  }
+
+  if (!zonesFound) {
+    statusEl.textContent = '⚠ Auto-detection timed out. Please edit zones manually.';
   }
 
   renderZoneList();

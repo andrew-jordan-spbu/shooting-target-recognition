@@ -5,6 +5,12 @@
 #  image, ~200 MB saved).
 # ──────────────────────────────────────────────────────────────────────────
 
+# Enable PyTorch GPU wheels when available.
+# If the current container has GPU support and a compatible CUDA environment,
+# pip may select a GPU-enabled torch wheel from the PyTorch index.
+# Newer NVIDIA GPUs like RTX 50xx may require CUDA 13.1-compatible wheels.
+--extra-index-url https://download.pytorch.org/whl/cu128
+
 flask>=3.0
 opencv-python-headless>=4.8        # ← headless variant (no Qt/X11)
 ultralytics>=8.3

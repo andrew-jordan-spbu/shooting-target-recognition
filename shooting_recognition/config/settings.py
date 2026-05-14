@@ -1,7 +1,11 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).parent.parent
+
+# Load .env relative to the package root so it works regardless of cwd
+load_dotenv(BASE_DIR / ".env")
 
 # --- Paths ---
 UPLOAD_FOLDER    = BASE_DIR / "uploads"

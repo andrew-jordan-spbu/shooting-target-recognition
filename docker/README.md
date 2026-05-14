@@ -19,12 +19,14 @@ mkdir -p ../shooting_recognition/recognition/weights
 
 # 2. Скопируйте и отредактируйте .env
 cp .env.example .env
+# на Windows PowerShell: copy .env.example .env
 # при необходимости поменяйте DB_PASSWORD, MODEL_CONFIDENCE и др.
 
 # 3. Запуск с автодетекцией GPU
+# в Git Bash / WSL / Linux:
 ./scripts/start.sh up --build
 
-# Альтернативный синтаксис (без авто-GPU):
+# в PowerShell / CMD:
 # docker compose up --build
 ```
 
@@ -62,9 +64,13 @@ cp .env.example .env
 
 | Платформа | USB-камера | NVIDIA GPU | Apple MPS | Веб-интерфейс |
 |-----------|------------|------------|-----------|---------------|
+| **Windows Docker Desktop** | ❌ нет проброса USB | ✅ через WSL2/NVIDIA контейнер | ❌ | ✅ работает |
 | **macOS Docker Desktop** | ❌ нет проброса USB | ❌ нет на Mac | ❌ не виден в контейнере | ✅ работает |
 | **Linux + NVIDIA + nvidia-container-toolkit** | ✅ с `--device` | ✅ через `--gpus all` | — | ✅ |
 | **Linux без GPU** | ✅ | ❌ | — | ✅ |
+
+> `./scripts/start.sh` — bash-скрипт. На Windows используйте Git Bash или WSL2. В PowerShell/CMD запускайте `docker compose up --build` напрямую.
+
 
 На Mac контейнер поддерживает только RTSP-поток и видеофайлы. Для USB-камеры используйте локальный запуск без Docker (`python main.py`).
 

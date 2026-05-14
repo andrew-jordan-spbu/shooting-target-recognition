@@ -1,3 +1,8 @@
+# Enable PyTorch GPU wheels when available.
+# If the current machine has CUDA and a compatible GPU, pip may select a GPU-enabled torch wheel.
+# Newer NVIDIA GPUs like RTX 50xx may require CUDA 13.1-compatible wheels.
+--extra-index-url https://download.pytorch.org/whl/cu128
+
 flask>=3.0
 opencv-python>=4.8
 ultralytics>=8.3

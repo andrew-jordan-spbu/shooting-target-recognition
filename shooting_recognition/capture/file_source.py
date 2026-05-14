@@ -26,7 +26,8 @@ class FileSource:
             frame = cv2.imread(str(self.path))
             if frame is None:
                 raise RuntimeError(f"Cannot read image: {self.path}")
-            yield frame
+            while True:  # yield same frame until pipeline sets running=False
+                yield frame
 
         elif ext in ALLOWED_VIDEO_EXT:
             self._cap = cv2.VideoCapture(str(self.path))

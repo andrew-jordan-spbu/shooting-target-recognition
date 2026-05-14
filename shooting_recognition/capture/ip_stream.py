@@ -10,9 +10,13 @@ class IPStreamSource:
         self._cap: cv2.VideoCapture | None = None
 
     def __enter__(self) -> "IPStreamSource":
-        self._cap = cv2.VideoCapture(self.url)
+        self._cap = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
         if not self._cap.isOpened():
             raise RuntimeError(f"Cannot open stream: {self.url}")
+
+        # Reduce latency and avoid frame accumulation on unreliable RTSP streams.
+        self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self._cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 5000)
         return self
 
     def __exit__(self, *_) -> None:
@@ -22,8 +26,14 @@ class IPStreamSource:
     def get_frames(self) -> Iterator[np.ndarray]:
         if not self._cap or not self._cap.isOpened():
             raise RuntimeError(f"Stream {self.url} is not open")
+
+        failed_reads = 0
         while True:
             ret, frame = self._cap.read()
             if not ret:
-                break
+                failed_reads += 1
+                if failed_reads >= 3:
+                    break
+                continue
+            failed_reads = 0
             yield frame

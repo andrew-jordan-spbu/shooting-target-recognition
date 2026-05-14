@@ -30,7 +30,9 @@
 
     <div id="src-ip" class="source-opts hidden">
       <label>RTSP URL</label>
-      <input type="text" name="rtsp_url" placeholder="rtsp://192.168.1.100/stream">
+      <input type="text" name="rtsp_url"
+             value="{{ default_rtsp_url }}"
+             placeholder="rtsp://192.168.1.100/stream">
     </div>
 
     <div id="src-file" class="source-opts hidden">

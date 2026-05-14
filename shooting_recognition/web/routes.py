@@ -1,7 +1,10 @@
 import json
+import logging
 import threading
 import time
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 import cv2
 import numpy as np
@@ -18,7 +21,7 @@ from capture.file_source import FileSource
 from capture.ip_stream import IPStreamSource
 from config.settings import (
     ALLOWED_IMAGE_EXT, ALLOWED_VIDEO_EXT,
-    CALIBRATION_FRAMES, OUTPUT_FOLDER, UPLOAD_FOLDER,
+    CALIBRATION_FRAMES, OUTPUT_FOLDER, RTSP_URL, UPLOAD_FOLDER,
 )
 from database.models import (
     add_shot, create_session, finish_session,
@@ -46,6 +49,7 @@ _state: dict = {
     "latest_frame": None,
     "calibration_frame": None,
     "calibration_zones": None,
+    "error": None,
 }
 _lock = threading.Lock()
 
@@ -61,7 +65,7 @@ def _allowed_file(filename: str) -> bool:
 
 @bp.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", default_rtsp_url=RTSP_URL)
 
 
 @bp.route("/start", methods=["POST"])
@@ -77,7 +81,10 @@ def start():
     if source_type == "usb":
         source = ("usb", int(request.form.get("camera_index", 0)))
     elif source_type == "ip":
-        source = ("ip", request.form.get("rtsp_url", ""))
+        rtsp_url = (request.form.get("rtsp_url") or "").strip()
+        if not rtsp_url:
+            return jsonify({"error": "RTSP URL is required for IP camera"}), 400
+        source = ("ip", rtsp_url)
     elif source_type == "file":
         f = request.files.get("video_file")
         if not f or not _allowed_file(f.filename):
@@ -103,6 +110,7 @@ def start():
             "latest_frame": None,
             "calibration_frame": None,
             "calibration_zones": None,
+            "error": None,
         })
 
     t = threading.Thread(target=_run_pipeline, args=(source,), daemon=True)
@@ -231,6 +239,7 @@ def status():
             "session_id": _state["session_id"],
             "shot_count": _state["shot_count"],
             "total_score": _state["total_score"],
+            "error": _state.get("error"),
         })
 
 
@@ -283,6 +292,11 @@ def _run_pipeline(source_tuple: tuple) -> None:
     motion = MotionDetector()
     zone_store = ZoneStore()
     frame_count = 0
+    is_static = (
+        src_type == "file"
+        and Path(src_val).suffix.lower() in ALLOWED_IMAGE_EXT
+    )
+    static_detected = False
 
     try:
         if src_type == "usb":
@@ -306,12 +320,22 @@ def _run_pipeline(source_tuple: tuple) -> None:
                         _state["calibration_frame"] = frame.copy()
                         _state["latest_frame"] = frame.copy()
 
-                    if frame_count == CALIBRATION_FRAMES:
-                        zones_data = detect_target(frame)
+                    # For static images run detection on the first frame;
+                    # for video wait until CALIBRATION_FRAMES are collected.
+                    run_detect = (is_static and frame_count == 1) or (
+                        not is_static and frame_count == CALIBRATION_FRAMES
+                    )
+                    if run_detect:
+                        try:
+                            zones_data = detect_target(frame)
+                        except Exception:
+                            log.exception("detect_target failed")
+                            zones_data = None
                         if zones_data:
                             zone_store.set(zones_data)
                             with _lock:
                                 _state["calibration_zones"] = zones_data
+                            log.info("Calibration zones set: %d zones", len(zones_data.get("zones", [])))
                     continue
 
                 # ── Wait until user confirms calibration ─────────────────
@@ -333,11 +357,18 @@ def _run_pipeline(source_tuple: tuple) -> None:
                 with _lock:
                     _state["latest_frame"] = display
 
-                if not motion.has_changed(frame):
+                # Static image: run inference once, then idle
+                if is_static and static_detected:
+                    time.sleep(0.1)
+                    continue
+
+                if not is_static and not motion.has_changed(frame):
                     continue
 
                 holes = model.detect(frame)
                 new_holes = scorer.find_new_holes(holes)
+                if is_static:
+                    static_detected = True
 
                 for hole in new_holes:
                     with _lock:
@@ -372,6 +403,9 @@ def _run_pipeline(source_tuple: tuple) -> None:
                             "score": hole["score"],
                             "total": total,
                         })
+    except Exception as exc:
+        with _lock:
+            _state["error"] = str(exc)
     finally:
         with _lock:
             _state["running"] = False

@@ -1,6 +1,6 @@
-# 🎯 shooting_recognition — Mac-приложение для распознавания результатов стрельбы
+# 🎯 shooting_recognition — кроссплатформенное приложение для распознавания результатов стрельбы
 
-Flask-приложение для автоматического подсчёта очков по видеопотоку спортивной мишени. Запускается **локально** на macOS Apple Silicon (используется ускоритель MPS), также работает на CPU/CUDA.
+Flask-приложение для автоматического подсчёта очков по видеопотоку спортивной мишени. Запускается **локально** на Windows, macOS и Linux. В качестве ускорителя поддерживается CUDA, Apple MPS и CPU.
 
 ## Что умеет
 
@@ -15,35 +15,70 @@ Flask-приложение для автоматического подсчёт�
 ## Быстрый старт
 
 ### Зависимости
-- Python 3.12
-- PostgreSQL 16 (`brew install postgresql@16`)
+- Python 3.12+ / 3.11+ / 3.10+
+- PostgreSQL 16
 - Обученные веса модели `best.pt` (см. `../model_training/` или GitHub Releases)
 
 ### Установка
 
-```bash
+```powershell
 cd shooting_recognition
-
-# 1. Виртуальное окружение
-python3.12 -m venv venv
-source venv/bin/activate
+python -m venv venv
+.\venv\Scripts\Activate.ps1   # PowerShell
+# либо в CMD:
+# venv\Scripts\activate
 pip install -r requirements.txt
 
-# 2. PostgreSQL
+# Если у вас NVIDIA GeForce RTX 50xx и вы видите предупреждение про sm_120,
+# переустановите PyTorch с CUDA 13.1-совместимым колесом:
+# pip install --upgrade torch torchvision --index-url https://download.pytorch.org/whl/cu131
+```
+
+### PostgreSQL
+
+На Windows установите PostgreSQL 16 через официальный инсталлятор или `winget`:
+
+```powershell
+winget install --id PostgreSQL.PostgreSQL.16
+```
+
+Если PostgreSQL уже установлен, создайте базу:
+
+```powershell
+createdb shooting_recognition
+```
+
+На macOS / Linux:
+
+```bash
+brew install postgresql@16
 brew services start postgresql@16
 createdb shooting_recognition
+```
 
-# 3. Конфигурация
-cp .env.example .env       # затем отредактируйте под себя
+### Конфигурация
 
-# 4. Положите best.pt в recognition/weights/
+```bash
+cp .env.example .env       # на Windows PowerShell: copy .env.example .env
+```
+
+### Модель
+
+```bash
 mkdir -p recognition/weights
 # wget https://github.com/USER/REPO/releases/download/v1.0/best.pt \
 #      -O recognition/weights/best.pt
+```
 
-# 5. Запуск
+### Запуск
+
+```bash
 python main.py
 ```
+
+Откройте `http://localhost:5000` в браузере.
+
+> Без файла `best.pt` приложение запустится в **mock-режиме** (генерирует случайные «пробоины») — пригодно для проверки UI.
 
 Откройте `http://localhost:5000` в браузере.
 

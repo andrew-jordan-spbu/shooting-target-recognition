@@ -1,13 +1,13 @@
 # 🎯 Shooting Target Recognition
 
-Система автоматического распознавания результатов пулевой стрельбы по бумажной мишени. Состоит из двух независимых подсистем: обучения модели YOLOv8 и Mac-приложения для инференса в реальном времени.
+Система автоматического распознавания результатов пулевой стрельбы по бумажной мишени. Состоит из двух независимых подсистем: обучения модели YOLOv8 и кроссплатформенного Flask-приложения для инференса в реальном времени.
 
 ## Из чего состоит
 
 | Подсистема | Назначение | Где запускается |
 |------------|-----------|-----------------|
 | [`model_training/`](./model_training/) | Обучение YOLOv8 на объединённом датасете публичных изображений мишеней | Google Colab (GPU) или локально (CUDA / Apple MPS / CPU) |
-| [`shooting_recognition/`](./shooting_recognition/) | Flask web-приложение: захват видео → детекция → подсчёт очков → отчёты | macOS Apple Silicon (предпочтительно) или CPU/CUDA |
+| [`shooting_recognition/`](./shooting_recognition/) | Flask web-приложение: захват видео → детекция → подсчёт очков → отчёты | Windows / macOS / Linux (CPU/CUDA; GPU опционально) |
 
 Связующее звено — файл весов модели `best.pt`, который переносится из `model_training/runs/train/shooting_target/weights/` в `shooting_recognition/recognition/weights/`. В этот репозиторий веса не входят, см. раздел [Веса модели](#веса-модели).
 
@@ -56,23 +56,46 @@ cp .env.example .env       # отредактируйте под себя (DB_PA
 
 Скрипт `start.sh` автоматически определяет наличие NVIDIA GPU и подключает соответствующий compose-конфиг. На Mac работает в CPU-режиме (USB-камера и MPS недоступны через Docker Desktop). Подробности: [`docker/README.md`](./docker/README.md).
 
-#### Вариант 2 — Локальная установка (Mac с MPS / Linux / Windows)
+#### Вариант 2 — Локальная установка (Windows / macOS / Linux)
+
+```powershell
+cd shooting_recognition
+python -m venv venv
+.\venv\Scripts\Activate.ps1   # PowerShell
+# либо в CMD:
+# venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+PostgreSQL 16 на Windows устанавливается через официальный инсталлятор или `winget`:
+
+```powershell
+winget install --id PostgreSQL.PostgreSQL.16
+```
+
+Если PostgreSQL уже установлен, создайте базу:
+
+```powershell
+createdb shooting_recognition
+```
+
+На macOS / Linux:
 
 ```bash
-cd shooting_recognition
-
-python3.12 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-
-# PostgreSQL (один раз)
 brew install postgresql@16
 brew services start postgresql@16
 createdb shooting_recognition
+```
 
-# Конфигурация
-cp .env.example .env       # отредактируйте под себя
+Конфигурация:
 
-# Старт
+```bash
+cp .env.example .env       # на Windows PowerShell: copy .env.example .env
+```
+
+Старт:
+
+```bash
 python main.py             # http://localhost:5000
 ```
 
